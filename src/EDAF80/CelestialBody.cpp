@@ -24,9 +24,19 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
     // milliseconds, the following would have been used:
     // auto const elapsed_time_ms = std::chrono::duration<float, std::milli>(elapsed_time).count();
 
-    _body.spin.rotation_angle = -glm::half_pi<float>() / 2.0f;
+	_body.spin.rotation_angle = glm::mod(_body.spin.rotation_angle + _body.spin.speed * elapsed_time_s, glm::two_pi<float>());
+	_body.orbit.rotation_angle = glm::mod(_body.orbit.rotation_angle + _body.orbit.speed * elapsed_time_s, glm::two_pi<float>());
 
-    glm::mat4 world = parent_transform;
+	auto scale_matrix = glm::scale(glm::mat4(1.0f), _body.scale);
+	auto const spin_matrix = glm::rotate(glm::mat4(1.0f), _body.spin.rotation_angle, glm::vec3(0.0f, 1.0f, 0.0f));
+	auto const tilt_matrix = glm::rotate(glm::mat4(1.0f), _body.spin.axial_tilt, glm::vec3(0.0f, 0.0f, 1.0f));
+	auto const translate_matrix = glm::translate(glm::mat4(1.0f), glm::vec3(_body.orbit.radius, 0.0f, 0.0f));
+	auto const orbit_matrix = glm::rotate(glm::mat4(1.0f), _body.orbit.rotation_angle, glm::vec3(0.0f, 1.0f, 0.0f));
+	auto const orbit_tilt_matrix = glm::rotate(glm::mat4(1.0f), _body.orbit.inclination, glm::vec3(0.0f, 0.0f, 1.0f));
+	
+
+	glm::mat4 world = parent_transform * orbit_tilt_matrix * orbit_matrix * translate_matrix * tilt_matrix * spin_matrix * scale_matrix;
+	auto const inheritable_transform = parent_transform * orbit_tilt_matrix * orbit_matrix * translate_matrix * tilt_matrix;
 
     if (show_basis) {
         bonobo::renderBasis(1.0f, 2.0f, view_projection, world);
@@ -40,7 +50,14 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
     // world matrix.
     _body.node.render(view_projection, world);
 
-    return parent_transform;
+	if (_ring.is_set) {
+		auto const ring_scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(_ring.scale, 1.0f));
+		auto const ring_rotate_matrix = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+		auto const ring_world = inheritable_transform * ring_rotate_matrix * ring_scale_matrix;
+		_ring.node.render(view_projection, ring_world);
+	}
+
+	return inheritable_transform;
 }
 
 void CelestialBody::add_child(CelestialBody *child) {

@@ -11,6 +11,7 @@
 
 #include <clocale>
 #include <cstdlib>
+#include <stack>
 
 int main() {
     std::setlocale(LC_ALL, "");
@@ -29,7 +30,7 @@ int main() {
     FPSCameraf camera(0.5f * glm::half_pi<float>(),
                       static_cast<float>(config::resolution_x) / static_cast<float>(config::resolution_y),
                       0.01f, 1000.0f);
-    camera.mWorld.SetTranslate(glm::vec3(0.0f, 0.0f, 6.0f));
+    camera.mWorld.SetTranslate(glm::vec3(0.0f, 4.0f, 20.0f));
     camera.mWorld.LookAt(glm::vec3(0.0f));
     camera.mMouseSensitivity = glm::vec2(0.003f);
     camera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
@@ -153,14 +154,63 @@ int main() {
     // Set up the celestial bodies.
     //
     CelestialBody moon(sphere, &celestial_body_shader, moon_texture);
-    moon.set_scale(glm::vec3(0.3f));
+    moon.set_scale(moon_scale);
     moon.set_spin(moon_spin);
-    moon.set_orbit({1.5f, glm::radians(-66.0f), glm::two_pi<float>() / 1.3f});
+    moon.set_orbit(moon_orbit);
 
     CelestialBody earth(sphere, &celestial_body_shader, earth_texture);
     earth.set_spin(earth_spin);
-    earth.set_orbit({-2.5f, glm::radians(45.0f), glm::two_pi<float>() / 10.0f});
+	earth.set_scale(earth_scale);
+    earth.set_orbit(earth_orbit);
     earth.add_child(&moon);
+
+	CelestialBody mars(sphere, &celestial_body_shader, mars_texture);
+	mars.set_spin(mars_spin);
+	mars.set_scale(mars_scale);
+	mars.set_orbit(mars_orbit);
+
+	CelestialBody jupiter(sphere, &celestial_body_shader, jupiter_texture);
+	jupiter.set_spin(jupiter_spin);
+	jupiter.set_scale(jupiter_scale);
+	jupiter.set_orbit(jupiter_orbit);
+
+	CelestialBody saturn(sphere, &celestial_body_shader, saturn_texture);
+	saturn.set_spin(saturn_spin);
+	saturn.set_scale(saturn_scale);
+	saturn.set_orbit(saturn_orbit);
+	saturn.set_ring(saturn_ring_shape, &celestial_ring_shader, saturn_ring_texture, saturn_ring_scale);
+
+	CelestialBody uranus(sphere, &celestial_body_shader, uranus_texture);
+	uranus.set_spin(uranus_spin);
+	uranus.set_scale(uranus_scale);
+	uranus.set_orbit(uranus_orbit);
+
+	CelestialBody neptune(sphere, &celestial_body_shader, neptune_texture);
+	neptune.set_spin(neptune_spin);
+	neptune.set_scale(neptune_scale);
+	neptune.set_orbit(neptune_orbit);
+
+	CelestialBody venus(sphere, &celestial_body_shader, venus_texture);
+	venus.set_spin(venus_spin);
+	venus.set_scale(venus_scale);
+	venus.set_orbit(venus_orbit);
+
+	CelestialBody mercury(sphere, &celestial_body_shader, mercury_texture);
+	mercury.set_spin(mercury_spin);
+	mercury.set_scale(mercury_scale);
+	mercury.set_orbit(mercury_orbit);
+	
+	CelestialBody sun(sphere, &celestial_body_shader, sun_texture);
+	sun.set_spin(sun_spin);
+	sun.set_scale(sun_scale);
+	sun.add_child(&mercury);
+	sun.add_child(&venus);
+	sun.add_child(&earth);
+	sun.add_child(&mars);
+	sun.add_child(&jupiter);
+	sun.add_child(&saturn);
+	sun.add_child(&uranus);
+	sun.add_child(&neptune);
 
     //
     // Define the colour and depth used for clearing.
@@ -231,11 +281,14 @@ int main() {
             CelestialBody *body;
             glm::mat4 parent_transform;
         };
-        // TODO: Replace this explicit rendering of the Earth and Moon
-        // with a traversal of the scene graph and rendering of all its
-        // nodes.
-        earth.render(animation_delta_time_us, camera.GetWorldToClipMatrix(), glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, 0.0f)), show_basis);
-        // moon.render(animation_delta_time_us, camera.GetWorldToClipMatrix(), glm::mat4(1.0f), show_basis);
+
+        auto render_body = [&](auto &&self, CelestialBody &body, const glm::mat4 &parent_transform) -> void {
+            auto const body_transform = body.render(animation_delta_time_us, camera.GetWorldToClipMatrix(), parent_transform, show_basis);
+            for (auto const &child : body.get_children())
+                self(self, *child, body_transform);
+        };
+
+        render_body(render_body, sun, glm::mat4(1.0f));
 
         //
         // Add controls to the scene.
