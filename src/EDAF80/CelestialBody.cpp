@@ -27,12 +27,10 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
     // Ex 1: Scaling
     // Computing the scaling matrix S using GLM's scale() function
     glm::mat4 S = glm::scale(identity_matrix, _body.scale);
-    //                             glm::vec3(1.0f, 0.2f, 0.2f));
     
     // Ex 2: Spinning
     // Updating the spin angle based on the elapsed time
     _body.spin.rotation_angle += _body.spin.speed * elapsed_time_s;
-    
     // Computing the first rotation matrix (R1,s) - Spin around y-axis
     glm::mat4 R1_s = glm::rotate(identity_matrix, _body.spin.rotation_angle, glm::vec3(0.0f, 1.0f, 0.0f));
     // Computing the second rotation matrix (R2,s) - Tilt around z-axis (axial tilt)
@@ -50,8 +48,7 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
     glm::mat4 R2_0 = glm::rotate(identity_matrix, _body.orbit.inclination, glm::vec3(0.0f, 0.0f, 1.0f));
     
     // Combine the matrices in the correct order (including parent_transform)
-    // Order: Parent transform -> Tilt orbit plane (R2_0) -> Orbit rotation (R_0) -> Translation to orbit (T_0)
-    // -> Spin (R1_s) -> Tilt (R2_s) -> Scaling (S)
+    // Order: Parent transform -> Tilt orbit plane (R2_0) -> Orbit rotation (R_0) -> Translation to orbit (T_0) -> Spin (R1_s) -> Tilt (R2_s) -> Scaling (S)
     glm::mat4 world = parent_transform * R2_0 * R_0 * T_0 * R1_s * R2_s * S;
     
     // Optionally show the coordinate basis if the flag is set
@@ -65,7 +62,14 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
     
     // Compute the matrix to pass to the children
     // Children will inherit the parent transform, orbit, and tilt (ignoring scale and spin)
-    glm::mat4 child_transform = parent_transform * R2_0 * R_0 * T_0 * R2_s;
+    glm::mat4 child_transform = parent_transform * R2_0 * R_0 * T_0;
+    
+    if (_ring.is_set) {
+        auto const ring_scale_matrix = glm::scale(glm::mat4(1.0f), glm::vec3(_ring.scale, 1.0f));
+        auto const ring_rotate_matrix = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        auto const ring_world = child_transform * ring_rotate_matrix * ring_scale_matrix;
+        _ring.node.render(view_projection, ring_world);
+    }
     
     // Return the transformation to be used by the children
     return child_transform;
