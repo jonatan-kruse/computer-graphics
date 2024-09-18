@@ -49,7 +49,7 @@ glm::mat4 CelestialBody::render(std::chrono::microseconds elapsed_time,
     
     // Combine the matrices in the correct order (including parent_transform)
     // Order: Parent transform -> Tilt orbit plane (R2_0) -> Orbit rotation (R_0) -> Translation to orbit (T_0) -> Spin (R1_s) -> Tilt (R2_s) -> Scaling (S)
-    glm::mat4 world = parent_transform * R2_0 * R_0 * T_0 * R1_s * R2_s * S;
+    glm::mat4 world = parent_transform * R2_0 * R_0 * T_0 * R2_s * R1_s * S;
     
     // Optionally show the coordinate basis if the flag is set
     if (show_basis)
