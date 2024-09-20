@@ -18,10 +18,12 @@
 #include <cstdlib>
 #include <stdexcept>
 
-edaf80::Assignment2::Assignment2(WindowManager &windowManager) : mCamera(0.5f * glm::half_pi<float>(),
-                                                                         static_cast<float>(config::resolution_x) / static_cast<float>(config::resolution_y),
-                                                                         0.01f, 1000.0f),
-                                                                 inputHandler(), mWindowManager(windowManager), window(nullptr) {
+edaf80::Assignment2::Assignment2(WindowManager &windowManager)
+    : mCamera(
+          0.5f * glm::half_pi<float>(),
+          static_cast<float>(config::resolution_x) / static_cast<float>(config::resolution_y),
+          0.01f, 1000.0f),
+      inputHandler(), mWindowManager(windowManager), window(nullptr) {
     WindowManager::WindowDatum window_datum{inputHandler, mCamera, config::resolution_x, config::resolution_y, 0, 0, 0, 0};
 
     window = mWindowManager.CreateGLFWWindow("EDAF80: Assignment 2", window_datum, config::msaa_rate);
@@ -36,14 +38,27 @@ edaf80::Assignment2::~Assignment2() {
     bonobo::deinit();
 }
 
+bool show_sphere = false;
+bool show_interpolation = !show_sphere;
+
 void edaf80::Assignment2::run() {
-    // Load the sphere geometry
-    auto const shape = parametric_shapes::createCircleRing(2.0f, 0.75f, 40u, 4u);
-    if (shape.vao == 0u)
+    // auto const quad = parametric_shapes::createQuad(0.25f, 0.15f);
+
+    auto const circle_ring = parametric_shapes::createCircleRing(0.5f, 0.05f, 40u, 4u);
+    if (circle_ring.vao == 0u)
         return;
 
-    // Set up the camera
-    mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 1.0f, 9.0f));
+    // auto const torus = parametric_shapes::createTorus(2.0f, 0.5f, 40, 20);
+
+    auto const sphere = parametric_shapes::createSphere(0.15f, 10u, 10u);
+    if (sphere.vao == 0u)
+        return;
+
+    if (show_sphere) {
+        mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 0.0f, 0.5f));
+    } else if (show_interpolation) {
+        mCamera.mWorld.SetTranslate(glm::vec3(0.0f, 1.0f, 9.0f));
+    }
     mCamera.mMouseSensitivity = glm::vec2(0.003f);
     mCamera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
 
@@ -106,26 +121,40 @@ void edaf80::Assignment2::run() {
 
     // Set the default tensions value; it can always be changed at runtime
     // through the "Scene Controls" window.
-    float catmull_rom_tension = 0.0f;
+    float catmull_rom_tension = 0.5f;
 
     // Set whether the default interpolation algorithm should be the linear one;
     // it can always be changed at runtime through the "Scene Controls" window.
-    bool use_linear = true;
+    bool use_linear = false;
 
     // Set whether to interpolate the position of an object or not; it can
     // always be changed at runtime through the "Scene Controls" window.
     bool interpolate = true;
+    if (show_sphere) {
+        interpolate = false;
+    }
 
     // Set whether to show the control points or not; it can always be changed
     // at runtime through the "Scene Controls" window.
     bool show_control_points = true;
+    if (show_sphere) {
+        show_control_points = false;
+    }
 
     auto circle_rings = Node();
-    circle_rings.set_geometry(shape);
+    circle_rings.set_geometry(circle_ring);
     circle_rings.set_program(&fallback_shader, set_uniforms);
     TRSTransformf &circle_rings_transform_ref = circle_rings.get_transform();
 
-    //! \todo Create a tesselated sphere and a tesselated torus
+    auto tessellated_sphere = Node();
+    tessellated_sphere.set_geometry(sphere);
+    tessellated_sphere.set_program(&fallback_shader, set_uniforms);
+
+    //
+    //	auto tessellated_torus = Node();
+    //	tessellated_torus.set_geometry(torus);
+    //	tessellated_torus.set_program(&fallback_shader, set_uniforms);
+    //	tessellated_torus.get_transform().SetTranslate(glm::vec3(-2.0f, 0.0f, 0.0f)); // Move it a bit to the left
 
     glClearDepthf(1.0f);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -175,7 +204,7 @@ void edaf80::Assignment2::run() {
         glfwPollEvents();
         inputHandler.Advance();
         mCamera.Update(deltaTimeUs, inputHandler);
-        elapsed_time_s += std::chrono::duration<float>(deltaTimeUs).count();
+        //        elapsed_time_s += std::chrono::duration<float>(deltaTimeUs).count();
 
         if (inputHandler.GetKeycodeState(GLFW_KEY_F3) & JUST_RELEASED)
             show_logs = !show_logs;
@@ -199,22 +228,46 @@ void edaf80::Assignment2::run() {
 
         glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
         bonobo::changePolygonMode(polygon_mode);
-
         if (interpolate) {
-            //! \todo Interpolate the movement of a shape between various
-            //!        control points.
+            elapsed_time_s += std::chrono::duration<float>(deltaTimeUs).count();
+
+            // Calculate integer part and fractional part of the elapsed time
+            int i = static_cast<int>(floor(elapsed_time_s)) % control_point_locations.size(); // Current segment
+            float x = elapsed_time_s - floor(elapsed_time_s);                                 // Fractional part of time
+
+            glm::vec3 newPosition;
+
             if (use_linear) {
-                //! \todo Compute the interpolated position
-                //!       using the linear interpolation.
+                // Linear interpolation
+                newPosition = interpolation::evalLERP(control_point_locations[i],
+                                                      control_point_locations[(i + 1) % control_point_locations.size()], x);
             } else {
-                //! \todo Compute the interpolated position
-                //!       using the Catmull-Rom interpolation;
-                //!       use the `catmull_rom_tension`
-                //!       variable as your tension argument.
+                // Catmull-Rom spline interpolation
+                int num_points = control_point_locations.size();
+                int p0 = (i - 1 + num_points) % num_points; // Ensure wrapping
+                int p1 = i;
+                int p2 = (i + 1) % num_points;
+                int p3 = (i + 2) % num_points;
+
+                newPosition = interpolation::evalCatmullRom(control_point_locations[p0], control_point_locations[p1],
+                                                            control_point_locations[p2], control_point_locations[p3],
+                                                            catmull_rom_tension, x);
             }
+
+            // Apply the new interpolated position to your object
+            circle_rings.get_transform().SetTranslate(newPosition);
         }
 
-        circle_rings.render(mCamera.GetWorldToClipMatrix());
+        if (show_interpolation) {
+            circle_rings.render(mCamera.GetWorldToClipMatrix());
+        }
+
+        if (show_sphere) {
+            tessellated_sphere.render(mCamera.GetWorldToClipMatrix());
+        }
+
+        //		tessellated_torus.render(mCamera.GetWorldToClipMatrix());
+
         if (show_control_points) {
             for (auto const &control_point : control_points) {
                 control_point.render(mCamera.GetWorldToClipMatrix());
@@ -230,7 +283,11 @@ void edaf80::Assignment2::run() {
             bonobo::uiSelectPolygonMode("Polygon mode", polygon_mode);
             auto selection_result = program_manager.SelectProgram("Shader", program_index);
             if (selection_result.was_selection_changed) {
-                circle_rings.set_program(selection_result.program, set_uniforms);
+                if (show_interpolation) {
+                    circle_rings.set_program(selection_result.program, set_uniforms);
+                } else if (show_sphere) {
+                    tessellated_sphere.set_program(selection_result.program, set_uniforms);
+                }
             }
             ImGui::Separator();
             ImGui::Checkbox("Show control points", &show_control_points);
