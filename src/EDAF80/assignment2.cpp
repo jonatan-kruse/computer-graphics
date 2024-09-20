@@ -232,28 +232,31 @@ edaf80::Assignment2::run()
 		bonobo::changePolygonMode(polygon_mode);
 		if (interpolate) {
 			elapsed_time_s += std::chrono::duration<float>(deltaTimeUs).count();
+			int num_points = control_point_locations.size();
 			
 			// Calculate integer part and fractional part of the elapsed time
-			int i = static_cast<int>(floor(elapsed_time_s)) % control_point_locations.size(); // Current segment
-			float x = elapsed_time_s - static_cast<float>(i); // Fractional part of time
+			int i = static_cast<int>(floor(elapsed_time_s)) % num_points;
+			float x = elapsed_time_s - floor(elapsed_time_s);
 			
 			glm::vec3 newPosition;
 			
 			if (use_linear) {
 				// Linear interpolation
 				newPosition = interpolation::evalLERP(control_point_locations[i],
-													  control_point_locations[(i + 1) % control_point_locations.size()], x);
+													  control_point_locations[(i + 1) % num_points], x);
 			} else {
 				// Catmull-Rom spline interpolation
-				int num_points = control_point_locations.size();
 				int p0 = (i - 1 + num_points) % num_points; // Ensure wrapping
 				int p1 = i;
 				int p2 = (i + 1) % num_points;
 				int p3 = (i + 2) % num_points;
 				
-				newPosition = interpolation::evalCatmullRom(control_point_locations[p0], control_point_locations[p1],
-															control_point_locations[p2], control_point_locations[p3],
-															catmull_rom_tension, x);
+				newPosition = interpolation::evalCatmullRom(control_point_locations[p0],
+															control_point_locations[p1],
+															control_point_locations[p2],
+															control_point_locations[p3],
+															catmull_rom_tension,
+															x);
 			}
 			
 			// Apply the new interpolated position to your object

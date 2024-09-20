@@ -178,20 +178,7 @@ parametric_shapes::createSphere(float const radius, unsigned int const horizonta
 								);
 			
 			tangents[index] = glm::normalize(tangent);
-
-//			glm::vec3 tangent;
-//			if (sin_phi == 0.0f) {
-//				// At the poles, set the tangent to a default direction
-//				tangent = glm::vec3(1.0f, 0.0f, 0.0f);
-//			} else {
-//				tangent = glm::vec3(radius * sin_phi * cos_theta,
-//									0.0f,
-//									-radius * sin_theta * sin_phi);
-//			}
-//			
-//			tangents[index] = glm::normalize(tangent);
-			
-			
+	
 			glm::vec3 binormal = glm::cross(tangent, normal);
 			binormals[index] = glm::normalize(binormal);
 			
@@ -418,16 +405,6 @@ parametric_shapes::createTorus(float const major_radius,
 	return data;
 }
 
-
-//bonobo::mesh_data
-//parametric_shapes::createTorus(float const major_radius,
-//                               float const minor_radius,
-//                               unsigned int const major_split_count,
-//                               unsigned int const minor_split_count)
-//{
-//	//! \todo (Optional) Implement this function
-//	return bonobo::mesh_data();
-//}
 
 bonobo::mesh_data
 parametric_shapes::createCircleRing(float const radius,
