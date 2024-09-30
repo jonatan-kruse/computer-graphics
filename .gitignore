@@ -12,6 +12,8 @@ dependencies/
 res/
 res.zip
 
+.vscode/
+
 # Application produced files
 imgui.ini
 log.txt

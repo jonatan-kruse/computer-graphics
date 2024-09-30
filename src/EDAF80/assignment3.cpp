@@ -14,14 +14,19 @@
 #include <imgui.h>
 #include <tinyfiledialogs.h>
 
+#include <iostream>
+#include <unistd.h>
+
 #include <clocale>
 #include <cstdlib>
 #include <stdexcept>
 
-edaf80::Assignment3::Assignment3(WindowManager &windowManager) : mCamera(0.5f * glm::half_pi<float>(),
-                                                                         static_cast<float>(config::resolution_x) / static_cast<float>(config::resolution_y),
-                                                                         0.01f, 1000.0f),
-                                                                 inputHandler(), mWindowManager(windowManager), window(nullptr) {
+edaf80::Assignment3::Assignment3(WindowManager &windowManager)
+    : mCamera(
+          0.5f * glm::half_pi<float>(),
+          static_cast<float>(config::resolution_x) / static_cast<float>(config::resolution_y),
+          0.01f, 1000.0f),
+      inputHandler(), mWindowManager(windowManager), window(nullptr) {
     WindowManager::WindowDatum window_datum{inputHandler, mCamera, config::resolution_x, config::resolution_y, 0, 0, 0, 0};
 
     window = mWindowManager.CreateGLFWWindow("EDAF80: Assignment 3", window_datum, config::msaa_rate);
@@ -42,6 +47,22 @@ void edaf80::Assignment3::run() {
     mCamera.mMouseSensitivity = glm::vec2(0.003f);
     mCamera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
 
+    char cwd[1024];
+    if (getcwd(cwd, sizeof(cwd)) != nullptr) {
+        std::cout << "Current working directory: " << cwd << std::endl;
+    } else {
+        std::cerr << "Error getting current working directory." << std::endl;
+    }
+
+    GLuint skybox_texture = bonobo::loadTextureCubeMap("../../../res/cubemaps/LarnacaCastle/posx.jpg", "../../../res/cubemaps/LarnacaCastle/negx.jpg",
+                                                       "../../../res/cubemaps/LarnacaCastle/posy.jpg", "../../../res/cubemaps/LarnacaCastle/negy.jpg",
+                                                       "../../../res/cubemaps/LarnacaCastle/posz.jpg", "../../../res/cubemaps/LarnacaCastle/negz.jpg",
+                                                       true);
+    
+    GLuint demo_sphere_diffuse_texture = bonobo::loadTexture2D("../../../res/textures/leather_red_02_coll1_2k.jpg");
+    GLuint demo_sphere_specular_texture = bonobo::loadTexture2D("../../../res/textures/leather_red_02_rough_2k.jpg");
+    GLuint demo_sphere_normal_texture = bonobo::loadTexture2D("../../../res/textures/leather_red_02_nor_2k.jpg");
+
     // Create the shader programs
     ShaderProgramManager program_manager;
     GLuint fallback_shader = 0u;
@@ -51,6 +72,26 @@ void edaf80::Assignment3::run() {
                                              fallback_shader);
     if (fallback_shader == 0u) {
         LogError("Failed to load fallback shader");
+        return;
+    }
+
+    GLuint skybox_shader = 0u;
+    program_manager.CreateAndRegisterProgram("Skybox",
+                                             {{ShaderType::vertex, "EDAF80/skybox.vert"},
+                                              {ShaderType::fragment, "EDAF80/skybox.frag"}},
+                                             skybox_shader);
+    if (skybox_shader == 0u) {
+        LogError("Failed to load skybox shader");
+        return;
+    }
+
+    GLuint phong_shader = 0u;
+    program_manager.CreateAndRegisterProgram("Phong",
+                                             {{ShaderType::vertex, "EDAF80/phong.vert"},
+                                              {ShaderType::fragment, "EDAF80/phong.frag"}},
+                                             phong_shader);
+    if (phong_shader == 0u) {
+        LogError("Failed to load phong shader");
         return;
     }
 
@@ -102,7 +143,8 @@ void edaf80::Assignment3::run() {
 
     Node skybox;
     skybox.set_geometry(skybox_shape);
-    skybox.set_program(&fallback_shader, set_uniforms);
+    skybox.set_program(&skybox_shader, set_uniforms);
+    skybox.add_texture("skybox", skybox_texture, GL_TEXTURE_CUBE_MAP);
 
     auto demo_shape = parametric_shapes::createSphere(1.5f, 40u, 40u);
     if (demo_shape.vao == 0u) {
@@ -119,7 +161,10 @@ void edaf80::Assignment3::run() {
     Node demo_sphere;
     demo_sphere.set_geometry(demo_shape);
     demo_sphere.set_material_constants(demo_material);
-    demo_sphere.set_program(&fallback_shader, phong_set_uniforms);
+    demo_sphere.set_program(&phong_shader, phong_set_uniforms);
+    demo_sphere.add_texture("diffuse", demo_sphere_diffuse_texture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("specular", demo_sphere_specular_texture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("normal", demo_sphere_normal_texture, GL_TEXTURE_2D);
 
     glClearDepthf(1.0f);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -129,6 +174,7 @@ void edaf80::Assignment3::run() {
 
     bool use_orbit_camera = false;
     std::int32_t demo_sphere_program_index = 0;
+    std::int32_t skybox_program_index = 0;
     auto cull_mode = bonobo::cull_mode_t::disabled;
     auto polygon_mode = bonobo::polygon_mode_t::fill;
     bool show_logs = true;
@@ -202,6 +248,10 @@ void edaf80::Assignment3::run() {
             auto demo_sphere_selection_result = program_manager.SelectProgram("Demo sphere", demo_sphere_program_index);
             if (demo_sphere_selection_result.was_selection_changed) {
                 demo_sphere.set_program(demo_sphere_selection_result.program, phong_set_uniforms);
+            }
+            auto skybox_selection_result = program_manager.SelectProgram("Skybox", skybox_program_index);
+            if (skybox_selection_result.was_selection_changed) {
+                skybox.set_program(skybox_selection_result.program, set_uniforms);
             }
             ImGui::Separator();
             ImGui::Checkbox("Use normal mapping", &use_normal_mapping);
