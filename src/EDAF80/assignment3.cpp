@@ -58,7 +58,7 @@ void edaf80::Assignment3::run() {
                                                        "../../../res/cubemaps/LarnacaCastle/posy.jpg", "../../../res/cubemaps/LarnacaCastle/negy.jpg",
                                                        "../../../res/cubemaps/LarnacaCastle/posz.jpg", "../../../res/cubemaps/LarnacaCastle/negz.jpg",
                                                        true);
-    
+
     GLuint demo_sphere_diffuse_texture = bonobo::loadTexture2D("../../../res/textures/leather_red_02_coll1_2k.jpg");
     GLuint demo_sphere_specular_texture = bonobo::loadTexture2D("../../../res/textures/leather_red_02_rough_2k.jpg");
     GLuint demo_sphere_normal_texture = bonobo::loadTexture2D("../../../res/textures/leather_red_02_nor_2k.jpg");
@@ -126,10 +126,21 @@ void edaf80::Assignment3::run() {
 
     bool use_normal_mapping = false;
     auto camera_position = mCamera.mWorld.GetTranslation();
-    auto const phong_set_uniforms = [&use_normal_mapping, &light_position, &camera_position](GLuint program) {
+
+    bonobo::material_data demo_material;
+    demo_material.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
+    demo_material.diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
+    demo_material.specular = glm::vec3(1.0f, 1.0f, 1.0f);
+    demo_material.shininess = 10.0f;
+
+    auto const phong_set_uniforms = [&use_normal_mapping, &light_position, &camera_position, &demo_material](GLuint program) {
         glUniform1i(glGetUniformLocation(program, "use_normal_mapping"), use_normal_mapping ? 1 : 0);
         glUniform3fv(glGetUniformLocation(program, "light_position"), 1, glm::value_ptr(light_position));
         glUniform3fv(glGetUniformLocation(program, "camera_position"), 1, glm::value_ptr(camera_position));
+        glUniform3fv(glGetUniformLocation(program, "ambient"), 1, glm::value_ptr(demo_material.ambient));
+        glUniform3fv(glGetUniformLocation(program, "diffuse"), 1, glm::value_ptr(demo_material.diffuse));
+        glUniform3fv(glGetUniformLocation(program, "specular"), 1, glm::value_ptr(demo_material.specular));
+        glUniform1f(glGetUniformLocation(program, "shininess"), demo_material.shininess);
     };
 
     //
@@ -152,19 +163,13 @@ void edaf80::Assignment3::run() {
         return;
     }
 
-    bonobo::material_data demo_material;
-    demo_material.ambient = glm::vec3(0.1f, 0.1f, 0.1f);
-    demo_material.diffuse = glm::vec3(0.7f, 0.2f, 0.4f);
-    demo_material.specular = glm::vec3(1.0f, 1.0f, 1.0f);
-    demo_material.shininess = 10.0f;
-
     Node demo_sphere;
     demo_sphere.set_geometry(demo_shape);
     demo_sphere.set_material_constants(demo_material);
     demo_sphere.set_program(&phong_shader, phong_set_uniforms);
-    demo_sphere.add_texture("diffuse", demo_sphere_diffuse_texture, GL_TEXTURE_2D);
-    demo_sphere.add_texture("specular", demo_sphere_specular_texture, GL_TEXTURE_2D);
-    demo_sphere.add_texture("normal", demo_sphere_normal_texture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("diffuseMap", demo_sphere_diffuse_texture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("specularMap", demo_sphere_specular_texture, GL_TEXTURE_2D);
+    demo_sphere.add_texture("normalMap", demo_sphere_normal_texture, GL_TEXTURE_2D);
 
     glClearDepthf(1.0f);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
