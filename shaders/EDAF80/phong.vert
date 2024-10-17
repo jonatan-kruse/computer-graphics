@@ -20,8 +20,8 @@ void main() {
 	vec3 T = normalize(mat3(vertex_model_to_world) * tangent);
 	vec3 B = normalize(mat3(vertex_model_to_world) * binormal);
 	vec3 N = normalize(mat3(vertex_model_to_world) * normal);
-	mat3 TBN = mat3(T, B, N);
-	vs_out.TBN = TBN;
+
+	vs_out.TBN = mat3(T, B, N);
 	vs_out.texCoord = texCoord;
 	vs_out.vertex = vec3(vertex_model_to_world * vec4(vertex, 1.0));
 	vs_out.normal = normalize(vec3(normal_model_to_world * vec4(normal, 0.0)));
