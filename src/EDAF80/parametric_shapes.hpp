@@ -98,4 +98,6 @@ namespace parametric_shapes {
                                        float const spread_length,
                                        unsigned int const circle_split_count,
                                        unsigned int const spread_split_count);
+
+    bonobo::mesh_data createSpaceShip();
 }

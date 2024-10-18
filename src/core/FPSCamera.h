@@ -19,6 +19,7 @@ public:
 
 public:
 	void Update(std::chrono::microseconds deltaTime, InputHandler &ih, bool ignoreKeyEvents = false, bool ignoreMouseEvents = false);
+	void UpdateGame(std::chrono::microseconds deltaTime, InputHandler &ih, TRSTransform<T, P> &player);
 	void SetProjection(T fovy, T aspect, T nnear, T nfar);
 	void SetFov(T fovy);
 	T GetFov();

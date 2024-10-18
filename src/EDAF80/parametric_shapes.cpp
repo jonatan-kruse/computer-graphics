@@ -535,4 +535,175 @@ parametric_shapes::createCircleRing(float const radius,
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0u);
 
     return data;
+
+
+}
+
+bonobo::mesh_data
+parametric_shapes::createSpaceShip() {
+    bonobo::mesh_data data;
+
+    // Define vertices for a simple 3D spaceship without wings
+    std::vector<glm::vec3> vertices = {
+        // Fuselage
+        glm::vec3(0.0f, 0.0f, 2.0f),    // 0 - Nose
+        glm::vec3(-0.5f, -0.5f, -2.0f), // 1 - Left Bottom Rear
+        glm::vec3(0.5f, -0.5f, -2.0f),  // 2 - Right Bottom Rear
+        glm::vec3(0.5f, 0.5f, -2.0f),   // 3 - Right Top Rear
+        glm::vec3(-0.5f, 0.5f, -2.0f),  // 4 - Left Top Rear
+
+        // Tail Fin
+        glm::vec3(0.0f, 1.0f, -2.5f),   // 5 - Tail Tip
+    };
+
+    // Define texture coordinates for each vertex
+    std::vector<glm::vec2> texcoords = {
+        glm::vec2(0.5f, 1.0f), // 0 - Nose
+        glm::vec2(0.0f, 0.0f), // 1 - Left Bottom Rear
+        glm::vec2(1.0f, 0.0f), // 2 - Right Bottom Rear
+        glm::vec2(1.0f, 1.0f), // 3 - Right Top Rear
+        glm::vec2(0.0f, 1.0f), // 4 - Left Top Rear
+
+        glm::vec2(0.5f, -0.5f), // 5 - Tail Tip
+    };
+
+    // Define indices for the triangles that make up the spaceship
+    std::vector<glm::uvec3> indices = {
+        // Fuselage sides
+        glm::uvec3(0, 1, 2), // Bottom front face
+        glm::uvec3(0, 2, 3), // Right front face
+        glm::uvec3(0, 3, 4), // Top front face
+        glm::uvec3(0, 4, 1), // Left front face
+
+        // Rear faces
+        glm::uvec3(1, 2, 5), // Bottom rear face
+        glm::uvec3(2, 3, 5), // Right rear face
+        glm::uvec3(3, 4, 5), // Top rear face
+        glm::uvec3(4, 1, 5), // Left rear face
+
+        // Tail Fin
+        glm::uvec3(3, 5, 4),
+    };
+
+    // Compute normals, tangents, and bitangents
+    std::vector<glm::vec3> normals(vertices.size(), glm::vec3(0.0f));
+    std::vector<glm::vec3> tangents(vertices.size(), glm::vec3(0.0f));
+    std::vector<glm::vec3> bitangents(vertices.size(), glm::vec3(0.0f));
+
+    for (const auto& triangle : indices) {
+        // Indices
+        unsigned int i0 = triangle.x;
+        unsigned int i1 = triangle.y;
+        unsigned int i2 = triangle.z;
+
+        // Positions
+        glm::vec3 const& p0 = vertices[i0];
+        glm::vec3 const& p1 = vertices[i1];
+        glm::vec3 const& p2 = vertices[i2];
+
+        // Texture coordinates
+        glm::vec2 const& uv0 = texcoords[i0];
+        glm::vec2 const& uv1 = texcoords[i1];
+        glm::vec2 const& uv2 = texcoords[i2];
+
+        // Edges of the triangle
+        glm::vec3 deltaPos1 = p1 - p0;
+        glm::vec3 deltaPos2 = p2 - p0;
+
+        // UV delta
+        glm::vec2 deltaUV1 = uv1 - uv0;
+        glm::vec2 deltaUV2 = uv2 - uv0;
+
+        float f = deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y;
+        if (fabs(f) < 1e-6f) {
+            // Prevent division by zero
+            f = 1.0f;
+        } else {
+            f = 1.0f / f;
+        }
+
+        glm::vec3 tangent = f * (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y);
+        glm::vec3 bitangent = f * (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x);
+
+        // Normal
+        glm::vec3 normal = glm::normalize(glm::cross(deltaPos1, deltaPos2));
+
+        // Accumulate
+        normals[i0] += normal;
+        normals[i1] += normal;
+        normals[i2] += normal;
+
+        tangents[i0] += tangent;
+        tangents[i1] += tangent;
+        tangents[i2] += tangent;
+
+        bitangents[i0] += bitangent;
+        bitangents[i1] += bitangent;
+        bitangents[i2] += bitangent;
+    }
+
+    // Normalize the accumulated vectors
+    for (size_t i = 0; i < vertices.size(); ++i) {
+        normals[i] = glm::normalize(normals[i]);
+        tangents[i] = glm::normalize(tangents[i]);
+        bitangents[i] = glm::normalize(bitangents[i]);
+    }
+
+    // Create and bind the Vertex Array Object (VAO)
+    glGenVertexArrays(1, &data.vao);
+    assert(data.vao != 0u);
+    glBindVertexArray(data.vao);
+
+    // Calculate buffer sizes
+    const auto vertices_size   = static_cast<GLsizeiptr>(vertices.size()   * sizeof(glm::vec3));
+    const auto normals_size    = static_cast<GLsizeiptr>(normals.size()    * sizeof(glm::vec3));
+    const auto tangents_size   = static_cast<GLsizeiptr>(tangents.size()   * sizeof(glm::vec3));
+    const auto bitangents_size = static_cast<GLsizeiptr>(bitangents.size() * sizeof(glm::vec3));
+    const auto texcoords_size  = static_cast<GLsizeiptr>(texcoords.size()  * sizeof(glm::vec2));
+    const auto buffer_size     = vertices_size + normals_size + tangents_size + bitangents_size + texcoords_size;
+
+    // Generate and bind the Buffer Object (BO)
+    glGenBuffers(1, &data.bo);
+    assert(data.bo != 0u);
+    glBindBuffer(GL_ARRAY_BUFFER, data.bo);
+    glBufferData(GL_ARRAY_BUFFER, buffer_size, nullptr, GL_STATIC_DRAW);
+
+    // Upload data
+    glBufferSubData(GL_ARRAY_BUFFER, 0, vertices_size, vertices.data());
+    glEnableVertexAttribArray(static_cast<unsigned int>(bonobo::shader_bindings::vertices));
+    glVertexAttribPointer(static_cast<unsigned int>(bonobo::shader_bindings::vertices), 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const*>(0));
+
+    glBufferSubData(GL_ARRAY_BUFFER, vertices_size, normals_size, normals.data());
+    glEnableVertexAttribArray(static_cast<unsigned int>(bonobo::shader_bindings::normals));
+    glVertexAttribPointer(static_cast<unsigned int>(bonobo::shader_bindings::normals), 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const*>(vertices_size));
+
+    glBufferSubData(GL_ARRAY_BUFFER, vertices_size + normals_size, tangents_size, tangents.data());
+    glEnableVertexAttribArray(static_cast<unsigned int>(bonobo::shader_bindings::tangents));
+    glVertexAttribPointer(static_cast<unsigned int>(bonobo::shader_bindings::tangents), 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const*>(vertices_size + normals_size));
+
+    glBufferSubData(GL_ARRAY_BUFFER, vertices_size + normals_size + tangents_size, bitangents_size, bitangents.data());
+    glEnableVertexAttribArray(static_cast<unsigned int>(bonobo::shader_bindings::binormals)); // Assuming binormals binding corresponds to bitangents
+    glVertexAttribPointer(static_cast<unsigned int>(bonobo::shader_bindings::binormals), 3, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const*>(vertices_size + normals_size + tangents_size));
+
+    glBufferSubData(GL_ARRAY_BUFFER, vertices_size + normals_size + tangents_size + bitangents_size, texcoords_size, texcoords.data());
+    glEnableVertexAttribArray(static_cast<unsigned int>(bonobo::shader_bindings::texcoords));
+    glVertexAttribPointer(static_cast<unsigned int>(bonobo::shader_bindings::texcoords), 2, GL_FLOAT, GL_FALSE, 0, reinterpret_cast<GLvoid const*>(vertices_size + normals_size + tangents_size + bitangents_size));
+
+    // Unbind the array buffer
+    glBindBuffer(GL_ARRAY_BUFFER, 0u);
+
+    // Generate and bind the Element Buffer Object (EBO) for indices
+    glGenBuffers(1, &data.ibo);
+    assert(data.ibo != 0u);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, data.ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(glm::uvec3), indices.data(), GL_STATIC_DRAW);
+
+    // Store the number of indices
+    data.indices_nb = static_cast<GLsizei>(indices.size() * 3u);
+
+    // Unbind the VAO and EBO
+    glBindVertexArray(0u);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0u);
+
+    return data;
 }

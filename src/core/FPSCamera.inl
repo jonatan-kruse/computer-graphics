@@ -77,6 +77,36 @@ void FPSCamera<T, P>::Update(std::chrono::microseconds deltaTime, InputHandler &
 }
 
 template <typename T, glm::precision P>
+void FPSCamera<T, P>::UpdateGame(std::chrono::microseconds deltaTime, InputHandler &ih, TRSTransform<T, P> &player) {
+    auto const deltaTime_s = std::chrono::duration<T>(deltaTime);
+
+    T rotateX = 0.0f, rotateY = 0.0f;
+    if (!ih.IsKeyboardCapturedByUI()) {
+        if ((ih.GetKeycodeState(GLFW_KEY_W) & PRESSED))
+            rotateX += 1.0f;
+        if ((ih.GetKeycodeState(GLFW_KEY_S) & PRESSED))
+            rotateX -= 1.0f;
+        if ((ih.GetKeycodeState(GLFW_KEY_A) & PRESSED))
+            rotateY -= 1.0f;
+        if ((ih.GetKeycodeState(GLFW_KEY_D) & PRESSED))
+            rotateY += 1.0f;
+
+        player.PreRotateX(-rotateX * deltaTime_s.count());
+        player.RotateY(-rotateY * deltaTime_s.count() * 2.0f);
+    }
+
+    T move = 1.0f, strafe = 0.0f, levitate = 0.0f;
+
+    auto const movementChange = (player.GetFront() * move + player.GetRight() * strafe + player.GetUp() * levitate);
+    auto const movementSpeed = mMovementSpeed * movementChange;
+
+    player.Translate(movementSpeed * deltaTime_s.count());
+    mWorld.SetTranslate(player.GetTranslation());
+    mWorld.Translate(player.GetFront() * -10.0f + player.GetUp() * 5.0f + player.GetRight() * rotateY * 0.3f + player.GetUp() * rotateX * -0.3f);
+    mWorld.LookAt(player.GetTranslation() + player.GetUp() * 3.0f);
+}
+
+template <typename T, glm::precision P>
 glm::tmat4x4<T, P> FPSCamera<T, P>::GetViewToWorldMatrix() {
     return mWorld.GetMatrix();
 }
