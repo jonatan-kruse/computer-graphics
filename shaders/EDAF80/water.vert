@@ -1,10 +1,10 @@
 #version 410 core
 
-layout (location = 0) in vec3 vertex;  // Vertex position
-layout (location = 1) in vec3 normal;  // Normal vector
-layout (location = 2) in vec3 texCoord;
-layout (location = 3) in vec3 tangent;
-layout (location = 4) in vec3 binormal;
+layout(location = 0) in vec3 vertex;  // Vertex position
+layout(location = 1) in vec3 normal;  // Normal vector
+layout(location = 2) in vec3 texCoord;
+layout(location = 3) in vec3 tangent;
+layout(location = 4) in vec3 binormal;
 
 uniform mat4 vertex_model_to_world;    // Model matrix 
 uniform mat4 normal_model_to_world;    // Normal matrix 
@@ -24,46 +24,42 @@ out VS_OUT {
     vec3 normal;   // Transformed normal 
 } vs_out;
 
-// Function to generate a wave displacement
-float wave(vec2 position, vec2 direction, float amplitude, float frequency, float phase, float sharpness, float time, float speed)
-{
-    return amplitude * pow(sin((position.x * direction.x + position.y * direction.y) * frequency + phase * time * speed) * 0.5 + 0.5, sharpness);
+float wave(vec2 position, vec2 direction, float amplitude, float frequency, float phase, float sharpness, float time, float speed) {
+    return amplitude * pow(sin(dot(position, direction) * frequency + phase * time * speed) * 0.5 + 0.5, sharpness);
 }
 
-// Function to calculate wave derivatives for normal calculation
-float derivative(vec2 position, vec2 direction, float amplitude, float frequency, float phase, float sharpness, float time, float speed)
-{
-    return 0.5 * sharpness * frequency * amplitude *
-           pow(sin((position.x * direction.x + position.y * direction.y) * frequency + phase * time * speed) * 0.5 + 0.5, sharpness - 1) *
-           cos((position.x * direction.x + position.y * direction.y) * frequency + time * speed * phase);
+// derivative function to calculate gradient vector
+vec2 derivative(vec2 position, vec2 direction, float amplitude, float frequency, float phase, float sharpness, float time, float speed) {
+    float S = dot(position, direction) * frequency + phase * time * speed;
+    float wave_value = sin(S) * 0.5 + 0.5;
+    float common_factor = 0.5 * sharpness * frequency * amplitude * pow(wave_value, sharpness - 1.0) * cos(S);
+    return common_factor * direction;
 }
 
-void main()
-{
+void main() {
     vec2 texScale = vec2(8, 4);
     float normalTime = mod(elapsed_time, 100.0);
     vec2 normalSpeed = vec2(-0.05, 0.0);
 
     normalCoord0.xy = texCoord.xz * texScale + normalTime * normalSpeed;
-    normalCoord1.xy = texCoord.xz * texScale * 2 + normalTime * normalSpeed * 4;
-    normalCoord2.xy = texCoord.xz * texScale * 4 + normalTime * normalSpeed * 8;
+    normalCoord1.xy = texCoord.xz * texScale * 2.0 + normalTime * normalSpeed * 4.0;
+    normalCoord2.xy = texCoord.xz * texScale * 4.0 + normalTime * normalSpeed * 8.0;
 
-    vec3 displaced_vertex = vertex; 
+    vec3 displaced_vertex = vertex;
     displaced_vertex.y += wave(vertex.xz, vec2(-1.0, 0.0), 1.0 * wave_amplitude, 0.2, 0.5, 2.0, elapsed_time, wave_speed);
     displaced_vertex.y += wave(vertex.xz, vec2(-0.70, 0.7), 0.5 * wave_amplitude, 0.4, 1.3, 2.0, elapsed_time, wave_speed);
 
     vs_out.vertex = vec3(vertex_model_to_world * vec4(displaced_vertex, 1.0));
 
-    vs_out.normal = vec3(derivative(vertex.xz, vec2(-1.0, 0.0), 1.0 * wave_amplitude, 0.2, 0.5, 2.0, elapsed_time, wave_speed) * -1, 1,
-                         derivative(vertex.xz, vec2(-1.0, 0.0), 1.0 * wave_amplitude, 0.2, 0.5, 2.0, elapsed_time, wave_speed) * 0);  
-    vs_out.normal += vec3(derivative(vertex.xz, vec2(-0.70, 0.7), 0.5 * wave_amplitude, 0.4, 1.3, 2.0, elapsed_time, wave_speed) * -0.7, 0,
-                          derivative(vertex.xz, vec2(-0.70, 0.7), 0.5 * wave_amplitude, 0.4, 1.3, 2.0, elapsed_time, wave_speed) * 0.7);
+    vec2 gradG1 = derivative(vertex.xz, vec2(-1.0, 0.0), 1.0 * wave_amplitude, 0.2, 0.5, 2.0, elapsed_time, wave_speed);
+    vec2 gradG2 = derivative(vertex.xz, vec2(-0.70, 0.7), 0.5 * wave_amplitude, 0.4, 1.3, 2.0, elapsed_time, wave_speed);
 
-    tangents = vec3(1, derivative(vertex.xz, vec2(-1.0, 0.0), 1.0 * wave_amplitude, 0.2, 0.5, 2.0, elapsed_time, wave_speed) * -1 + 
-                      derivative(vertex.xz, vec2(-0.70, 0.7), 0.5 * wave_amplitude, 0.4, 1.3, 2.0, elapsed_time, wave_speed) * 0, 0);
+    vec2 gradH = gradG1 + gradG2;
 
-    binormals = vec3(0, derivative(vertex.xz, vec2(-1.0, 0.0), 1.0 * wave_amplitude, 0.2, 0.5, 2.0, elapsed_time, wave_speed) * -0.7 + 
-                      derivative(vertex.xz, vec2(-0.70, 0.7), 0.5 * wave_amplitude, 0.4, 1.3, 2.0, elapsed_time, wave_speed) * 0.7, 1);
+    tangents = normalize(vec3(1.0, gradH.x, 0.0));
+    binormals = normalize(vec3(0.0, gradH.y, 1.0));
 
-    gl_Position = vertex_world_to_clip * vertex_model_to_world * vec4(vs_out.vertex, 1.0);
+    vs_out.normal = normalize(-cross(tangents, binormals));
+
+    gl_Position = vertex_world_to_clip * vertex_model_to_world * vec4(displaced_vertex, 1.0);
 }

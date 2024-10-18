@@ -42,7 +42,7 @@ void edaf80::Assignment4::run()
 	mCamera.mWorld.SetTranslate(glm::vec3(-40.0f, 14.0f, 6.0f));
 	mCamera.mWorld.LookAt(glm::vec3(0.0f));
 	mCamera.mMouseSensitivity = glm::vec2(0.003f);
-	mCamera.mMovementSpeed = glm::vec3(3.0f); // 3 m/s => 10.8 km/h
+	mCamera.mMovementSpeed = glm::vec3(50.0f); // 3 m/s => 10.8 km/h
 	auto camera_position = mCamera.mWorld.GetTranslation();
 
 	// Create the shader programs
@@ -128,6 +128,7 @@ void edaf80::Assignment4::run()
 	quad.set_program(&water_shader, water_uniforms);
 	quad.add_texture("normal_map", normal_map, GL_TEXTURE_2D);
 	quad.add_texture("water_texture", cubemap, GL_TEXTURE_CUBE_MAP);
+	quad.get_transform().SetTranslate(glm::vec3(-25.0f, 0.0f, -25.0f));
 
 	glClearDepthf(1.0f);
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
