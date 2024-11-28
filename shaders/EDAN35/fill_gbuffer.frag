@@ -44,6 +44,6 @@ void main()
 		normal = normalize(normal * 2.0 - 1.0);
 		mat3 tbn = mat3(fs_in.tangent, fs_in.binormal, fs_in.normal);
 		normal = tbn * normal;
-		geometry_normal = normal_model_to_world * vec4(normal, 0.0);
+		geometry_normal = (normal_model_to_world * vec4(normal, 0.0) + 1.0) / 2.0;
 	}
 }
