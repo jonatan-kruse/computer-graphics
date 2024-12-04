@@ -41,21 +41,34 @@ void main() {
 	world_position /= world_position.w;
 
 	vec3 light_dir = normalize(light_position - world_position.xyz);
-	float ndotl = dot(normal, light_dir);
 	float light_distance = length(light_position - world_position.xyz);
 	float light_attenuation = 1.0 / (1 + (light_distance * light_distance * 0.000003));
 	vec3 n_light_direction = normalize(light_direction);
 	vec3 n_light_dir = normalize(light_dir);
 	float light_angle = dot(n_light_direction, -n_light_dir);
 	float angle_falloff = (light_angle - cos(light_angle_falloff)) / (1 - cos(light_angle_falloff));
-	vec3 light = light_color * light_attenuation * angle_falloff;
 
+	float ndotl = dot(normal, light_dir);
 	vec3 view_dir = normalize(camera_position - world_position.xyz);
 	vec3 reflect_dir = reflect(-light_dir, normal);
 
+	vec4 shadowmap_position = lights[light_index].view_projection * world_position;
+	shadowmap_position.xyz /= shadowmap_position.w;
+	shadowmap_position.xy = shadowmap_position.xy * 0.5 + 0.5;
+	float shadow = 1.0;
+	for (int x = -2; x <= 2; x++) {
+		for (int y = -2; y <= 2; y++) {
+			vec2 offset = vec2(x, y) * shadowmap_texel_size;
+			float shadow_depth = texture(shadow_texture, shadowmap_position.xy + offset).x;
+			float depth = shadowmap_position.z;
+			if (shadow_depth < depth) {
+				shadow -= 1.0 / 30.0;
+			}
+		}
+	}
+
+	vec3 light = light_color * light_attenuation * angle_falloff * shadow * light_intensity / 400000.0;
+
 	light_diffuse_contribution = vec4(light * max(ndotl, 0.0), 1.0);
 	light_specular_contribution = vec4(light * max(dot(view_dir, reflect_dir), 0.0), 1.0);
-	// light_diffuse_contribution = vec4(angle_falloff);
-	// light_specular_contribution = vec4(angle_falloff);
-	
 }

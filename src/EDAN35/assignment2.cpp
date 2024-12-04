@@ -545,6 +545,7 @@ edan35::Assignment2::run()
 
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbos[toU(FBO::ShadowMap)]);
 				glViewport(0, 0, constant::shadowmap_res_x, constant::shadowmap_res_y);
+				glClear(GL_DEPTH_BUFFER_BIT);
 				// XXX: Is any clearing needed?
 
 				glUseProgram(fill_shadowmap_shader);
